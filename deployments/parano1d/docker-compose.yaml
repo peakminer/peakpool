@@ -4,9 +4,8 @@
 #   docker compose up -d
 #   docker compose logs -f pool
 #
-# Point your rigs (peakminer) at <this host>:34254. The SV2 authority identity is
-# baked into both the pool image and peakminer, so rigs need no key on the
-# command line — see step 5 of the README.
+# Point your rigs (peakminer) at <this host>:34254 — nothing else to configure on
+# the miner side, see step 5 of the README.
 #
 # Everything tunable lives in .env; you should not need to touch this file.
 # Wallet/telemetry helpers live in ./p1d (./p1d help).

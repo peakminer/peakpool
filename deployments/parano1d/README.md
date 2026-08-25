@@ -237,9 +237,8 @@ The pool speaks **Stratum V2 only**, on one Noise-encrypted port:
 `<pool-host>:34254`.
 
 Install **peakminer** on each rig first (see the peakminer release notes for the
-build for your hardware). It already has this pool's SV2 authority identity
-baked in, so there is no key to copy and nothing extra to configure — just point
-each rig at the host:
+build for your hardware), then point each rig at the host. There is nothing else
+to configure on the miner side:
 
 ```bash
 peakminer \
