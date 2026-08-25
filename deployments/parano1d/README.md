@@ -9,15 +9,40 @@ withdrawal — the coinbase is yours.
 > finds a block. There is no PPS/PPLNS smoothing and no other miners to pool
 > luck with. It is meant for one operator running their own rigs.
 
+**New here? Follow the steps in order.** Steps 1–3 get the stack running, step 4
+gets you a wallet address, step 5 connects your first rig, step 6 backs up the
+one file you cannot recreate.
+
+| | |
+|---|---|
+| [1. What you need](#1-what-you-need) | Docker, ports, hardware |
+| [2. Quick start](#2-quick-start) | three commands |
+| [3. Set your wallet](#3-set-your-wallet--where-blocks-pay) | where blocks pay |
+| [4. Wallet commands](#4-wallet-address-balance-and-sending) | `./p1d address` / `balance` / `send` |
+| [5. Connect your miners](#5-connect-your-miners) | the peakminer command line |
+| [6. Back up your wallet](#6-back-up-your-wallet--do-this-once) | do this once, early |
+| [7. Watch it run](#7-watch-it-run) | logs, stats, what the numbers mean |
+| [8. Did I find a block?](#8-did-i-find-a-block) | how to tell, and get paid |
+| [9. `.env` reference](#9-env-reference) | every setting |
+| [10. Update, restart, reset](#10-update-restart-reset) | day-two operations |
+| [11. Troubleshooting](#11-troubleshooting) | when something looks wrong |
+
 ---
 
 ## 1. What you need
 
-- A Linux machine (a VPS or a home box) with **Docker** and the **Docker
-  Compose** plugin.
-- Outbound internet so the node can follow the chain (P2P port `9600`).
-- Nothing else. The node syncs from a snapshot in well under a minute — there is
-  no multi-hour initial download.
+- A **Linux machine** (a VPS or a home box) with **Docker Engine** and the
+  **Docker Compose plugin** — install both with the official convenience script
+  or your distro packages: <https://docs.docker.com/engine/install/>.
+- Your user must be able to talk to Docker. Either add yourself to the `docker`
+  group once (`sudo usermod -aG docker $USER`, then log out and back in) or put
+  `sudo` in front of every `docker` command below.
+- **Hardware:** modest. The chain state is small and resyncs from the network in
+  seconds, so there is no multi-hour initial download and no large disk
+  requirement. What actually matters is **CPU cores** — the node's proving step
+  is all-core and sits on the critical path, so more cores means shorter gaps
+  between jobs.
+- **Network:** see the port table below.
 
 Check Docker is ready:
 
@@ -25,6 +50,15 @@ Check Docker is ready:
 docker version
 docker compose version
 ```
+
+### Ports
+
+| Port | Used by | Who must reach it |
+|---|---|---|
+| `9600` | Node P2P | The internet, **both directions**. Published on all interfaces; open it in your firewall / cloud security group so peers can connect back. |
+| `34254` | **Stratum V2 miners** | Your rigs. If a rig is on another machine, this port must be open to it. |
+| `9330` | Pool stats / health | Bound to `127.0.0.1` only — deliberately not reachable from outside the machine. |
+| `9601` | Node RPC | Nothing outside. Never published to the host; it stays inside the compose network. |
 
 ---
 
@@ -37,6 +71,9 @@ cp .env.example .env      # then EDIT .env — see step 3
 docker compose up -d      # pulls images, starts node + pool
 docker compose logs -f pool
 ```
+
+> **Don't skip the `cp`.** The stack refuses to start without a `.env`, because
+> `MINING_KEY` has no built-in default.
 
 The node syncs first (the pool waits for it automatically). Within a minute or
 two you should see the pool banner and a status line every 15 seconds:
@@ -73,7 +110,7 @@ Open `.env` and set **`WALLET_ADDRESS`**. You have two choices.
 > 🆕 **Don't have a ParanO(1)d wallet yet?** You don't need to make one first.
 > Choose **Option A**: leave `WALLET_ADDRESS` empty and the node **creates a
 > fresh wallet for you automatically** on first start (a new `o1…` address plus
-> its `wallet.key`). Read the address with the commands in step 4, then back up
+> its `wallet.key`). Read the address with `./p1d address` (step 4), then back up
 > `wallet.key` (step 6) — that address *is* your wallet.
 
 ### Option A — use the node's own wallet (easiest, recommended)
@@ -86,8 +123,7 @@ WALLET_ADDRESS=
 
 The node creates and holds a wallet for you automatically on first start, and
 blocks pay straight into it. Nothing else to do. To see the address and balance,
-use the commands in step 4. (Need more than one address? Generate additional
-ones any time with `paranoid_walletNextAddress` — same call style as step 4.)
+use step 4. (Need more than one address? `./p1d newaddress` any time.)
 
 > ⚠️ The wallet's private key lives in the `chain` Docker volume as
 > `wallet.key`. **Back it up** (step 6) — if you lose it, you lose the coins.
@@ -125,29 +161,29 @@ Confirm it is yours.
 
 ## 4. Wallet: address, balance, and sending
 
-These talk to your node over its private RPC (never exposed outside the compose
-network). Run them from this folder:
+`./p1d` is a small script in this folder that talks to your node's private RPC
+for you, so you never have to hand-write a `curl` + JSON one-liner. Run it from
+this folder. (It pretty-prints with `jq` if you have it — `sudo apt install jq` —
+and prints plain JSON otherwise.)
+
+```bash
+./p1d help          # all commands
+```
 
 **Your address:**
 
 ```bash
-docker compose exec node sh -lc '
-  curl -fsS -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $MINING_KEY" \
-    --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"paranoid_walletActiveAddress\",\"params\":[]}" \
-    http://127.0.0.1:9601'
+./p1d address
 ```
 
 → `{"result":{"address":"o13n74ug…","key_index":0,"is_active":true}}`
 
+This is the address you use in the miner login in step 5.
+
 **Your balance:**
 
 ```bash
-docker compose exec node sh -lc '
-  curl -fsS -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $MINING_KEY" \
-    --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"paranoid_walletGetBalance\",\"params\":[]}" \
-    http://127.0.0.1:9601'
+./p1d balance
 ```
 
 → `{"result":{"balance_noid":0.0,"spendable_noid":0.0,…}}`
@@ -158,28 +194,40 @@ spendable only after it finalizes (about 18 blocks deep).
 **Send NOID:**
 
 ```bash
-docker compose exec node sh -lc '
-  curl -fsS -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $MINING_KEY" \
-    --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"paranoid_walletSend\",\"params\":[\"o1RECIPIENT_ADDRESS\",100000000,0]}" \
-    http://127.0.0.1:9601'
+./p1d send o1RECIPIENT_ADDRESS 100        # 100 NOID, node picks the fee
 ```
 
-The three params are `[recipient, amount_μNOID, fee_μNOID]`:
-
-- **recipient** — an `o1…` address to pay.
-- **amount** — in **μNOID**: `100000000` = 100 NOID (`1 NOID = 1,000,000 μNOID`).
-- **fee** — `0` lets the node pick the fee automatically.
+The script takes the amount in **NOID** (not μNOID), converts it, shows you what
+it is about to do, and asks for confirmation before spending. Pass a third
+argument to set an explicit fee in μNOID; omit it and the node chooses.
 
 → `{"result":{"txid":"36b1…","amount_micronoid":100000000,"fee_micronoid":6700,…}}`
 
 The send spends your active address and change returns to it; it confirms once
-it lands in a block (a few seconds to a minute). Check `paranoid_walletGetBalance`
-again to see it move.
+it lands in a block (a few seconds to a minute). Run `./p1d balance` again to see
+it move.
 
 > 🔑 Sending needs the `wallet.key` this node holds. Only this node can spend its
 > wallet — **back up `wallet.key` first** (step 6). If you lose it, the coins are
 > gone.
+
+<details>
+<summary>Prefer raw <code>curl</code>? The equivalent without the script</summary>
+
+```bash
+docker compose exec node sh -lc '
+  curl -fsS -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $MINING_KEY" \
+    --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"paranoid_walletActiveAddress\",\"params\":[]}" \
+    http://127.0.0.1:9601'
+```
+
+Swap the `method` for `paranoid_walletGetBalance`, `paranoid_walletNextAddress`,
+`paranoid_getNodeStatus`, or `paranoid_walletSend` with
+`"params":["o1RECIPIENT",100000000,0]` — that is `[recipient, amount_μNOID,
+fee_μNOID]`, and `100000000` μNOID = 100 NOID.
+
+</details>
 
 ---
 
@@ -188,8 +236,10 @@ again to see it move.
 The pool speaks **Stratum V2 only**, on one Noise-encrypted port:
 `<pool-host>:34254`.
 
-**peakminer** already has this pool's SV2 identity baked in, so there is nothing
-extra to configure — just point each rig at the host:
+Install **peakminer** on each rig first (see the peakminer release notes for the
+build for your hardware). It already has this pool's SV2 authority identity
+baked in, so there is no key to copy and nothing extra to configure — just point
+each rig at the host:
 
 ```bash
 peakminer \
@@ -198,13 +248,16 @@ peakminer \
     --coin parano1d
 ```
 
-- `-o` — the pool, as `stratum+sv2://host:34254`. On the **same machine** as the
-  stack use the Docker bridge address `172.17.0.1`; from **another machine** use
-  the pool host's IP or hostname.
-- `-u` — this rig's login as `<o1-address>.<worker>`. It must be a valid `o1…`
-  address (the pool checks it) and the `.rig1` part just names the worker in the
-  status table — give each rig its own name. Blocks pay the wallet you set in
-  **step 3**, not this address.
+- `-o` — the pool, as `stratum+sv2://host:34254`. If peakminer runs on the
+  **same machine** as this stack, use `127.0.0.1:34254`. From **another
+  machine**, use the pool host's LAN IP or hostname. (Only if you run peakminer
+  inside *another container* do you need the Docker bridge address, typically
+  `172.17.0.1`.)
+- `-u` — this rig's login as `<o1-address>.<worker>`. Use the address from
+  **step 4** (`./p1d address`) — it must be a valid `o1…` address, the pool
+  checks it. The `.rig1` part just names the worker in the status table, so give
+  each rig its own name. Blocks pay the wallet you set in **step 3**, not this
+  address.
 - `--coin parano1d`.
 
 Difficulty auto-tunes to each rig; you do not set it per miner.
@@ -224,27 +277,47 @@ peakpool v0.1.0
 
 ## 6. Back up your wallet — do this once
 
-If you use the node's own wallet (Option A), its private key is the only thing
-you cannot recreate. The chain resyncs from the network in seconds; `wallet.key`
-does not come back.
+If you use the node's own wallet (Option A), its key is the only thing you
+cannot recreate. The chain resyncs in seconds; the wallet does not.
 
 ```bash
-docker compose run --rm backup
+./p1d backup                 # same as: docker compose run --rm backup
 ```
 
-This copies `wallet.key` into `./backup/`. **Copy `./backup/` off this machine**
-(a USB stick, another server, wherever you keep secrets) and keep it safe. Do
-this before you accumulate any real balance.
+This copies the **full wallet set** — `wallet.key` **plus** `wallet.meta` and
+`.network-storage-epoch` — into `./backup/`. **Copy `./backup/` off this
+machine** (a USB stick, another server, wherever you keep secrets), before you
+accumulate any real balance.
+
+> ⚠️ All three files matter. On a fresh machine the node runs a one-time reset
+> that **wipes a data directory that is missing `.network-storage-epoch`** and
+> then creates a new, empty wallet — so a lone `wallet.key` does **not** restore.
+
+**To restore** (e.g. on a new machine), stop the node, put the backup back into
+the chain volume, and start it:
+
+```bash
+docker compose stop node
+docker run --rm -v parano1d-pool_chain:/chain -v "$PWD/backup":/bk busybox \
+  sh -c 'cp -a /bk/wallet.key /bk/wallet.meta /bk/.network-storage-epoch /chain/ && chmod 600 /chain/wallet.key'
+docker compose start node
+```
+
+The node log should say **`loading wallet`** (not `creating new wallet`); then
+`paranoid_walletGetBalance` (step 4) shows your balance.
+
+> Docker creates `./backup/` owned by **root**, so copying it out may need
+> `sudo`. Treat these files like private keys — because they are.
 
 ---
 
 ## 7. Watch it run
 
 ```bash
-docker compose logs -f pool          # live banner, share lines, status table
+./p1d logs                           # live banner, share lines, status table
+./p1d stats                          # JSON: hashrate, shares, height, balances
+./p1d status                         # node: sync height, mining_ready
 docker compose ps                    # health of node + pool
-curl -s http://127.0.0.1:9330/stats  # JSON: hashrate, shares, height, balances
-curl -s http://127.0.0.1:9330/healthz
 ```
 
 The stats endpoint is bound to **loopback only** — it is not reachable from
@@ -263,22 +336,54 @@ What the numbers mean:
 
 ---
 
-## 8. `.env` reference
+## 8. Did I find a block?
 
-| Variable | Meaning | Default |
+Solo mining is all-or-nothing, so this is the question you will actually ask.
+Three ways to check, cheapest first:
+
+```bash
+docker compose logs pool | grep -i block     # every block the pool found
+./p1d balance                                # the money side
+./p1d stats                                  # blocks + effort since last one
+```
+
+- The pool logs a line when one of your shares turns out to be a **block**, and
+  the **effort** counter in the status table resets to ~0 % right after — a
+  reset effort with no restart is itself a good sign you just found one.
+- The reward lands in the payout address from step 3. It shows up in
+  `./p1d balance` as balance first, and becomes **spendable only after the block
+  finalizes** (about 18 blocks deep), so a fresh block reads as balance without
+  spendable for a few minutes. That is normal, not a stuck payment.
+- If you chose **Option B** (an external wallet), the node here holds none of it
+  — check the balance in *that* wallet instead; `./p1d balance` will stay at
+  zero forever, correctly.
+
+---
+
+## 9. `.env` reference
+
+| Variable | Meaning | `.env.example` value |
 |---|---|---|
 | `WALLET_ADDRESS` | Where blocks pay. Empty = node's own wallet. | *(empty)* |
-| `MINING_KEY` | Shared secret between node and pool. Never leaves the compose network. | *(working default)* |
+| `MINING_KEY` | Shared secret between node and pool. **Required** — no built-in default; the two services read this same value, so any non-empty string matches. Never leaves the compose network. | `change-me-to-any-random-secret` |
 | `NODE_CPUS` | CPU cores for the node. `0` = all. Proving is all-core; give it the machine. | `0` |
 | `MIN_SHARE_DIFFICULTY` | Vardiff floor, in expected hashes per share. Rarely needs changing. | `1000000` |
 
 > **`MINING_KEY`:** it authorizes the node's mining RPC. Port `9601` is never
-> published to the host, so the default is fine on a machine only you use.
-> **Change it** on any shared or multi-tenant box.
+> published to the host, so nothing outside the compose network can use it — but
+> the value shipped in `.env.example` is a placeholder, not a secret. **Set your
+> own**, especially on a shared or multi-tenant box:
+>
+> ```bash
+> openssl rand -hex 32
+> ```
+>
+> Changing it later is fine — edit `.env` and `docker compose up -d`; both
+> services pick up the new value together.
 
 ---
 
-## 9. Update, restart, reset
+## 10. Update, restart, reset
 
 ```bash
 # Update to a newer image release, then recreate:
@@ -297,12 +402,32 @@ docker compose down -v
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
-**Pool log says “waiting for the node to sync…” for a while.**
+**`permission denied … /var/run/docker.sock`**
+Your user is not in the `docker` group. Either `sudo usermod -aG docker $USER`
+and log out and back in, or prefix every command with `sudo` (including
+`./p1d`, e.g. `sudo ./p1d address`).
+
+**`error while interpolating … MINING_KEY: set MINING_KEY in .env`**
+You have no `.env`. Run `cp .env.example .env` in this folder first — there is
+no built-in default for `MINING_KEY`.
+
+**`bind: address already in use` on `34254`, `9600`, or `9330`.**
+Something else already listens there — often an older copy of this stack. Check
+with `docker compose ps` and `sudo ss -lptn 'sport = :34254'`, then stop the
+other process (or `docker compose down` the old stack) and try again.
+
+**`pull access denied` / `manifest unknown` when starting.**
+The images could not be fetched. Check the machine has outbound internet and
+that the tags in `docker-compose.yaml` match a published release; if the images
+are private for you, `docker login` first.
+
+**Pool log says "waiting for the node to sync…" for a while.**
 Normal on first start. The node must sync and reach its peer quorum before it
 can build templates. `docker compose ps` shows the node as `healthy` once ready;
-the pool starts automatically after that.
+the pool starts automatically after that. `./p1d status` shows the same thing as
+`mining_ready`.
 
 **`miners 0` in the status table.**
 No rig is connected. Check the miner command from step 5 (`-o stratum+sv2://…`,
@@ -340,4 +465,5 @@ else about the pool — identity, payout logic — is fixed in the release image
 
 ---
 
-*Powered by peakpool (Stratum V2) · node & pool images `:1.0.0`.*
+*Powered by peakpool (Stratum V2) · images `peakminer/parano1d-node:1.0.0` and
+`peakminer/peakpool:0.1.0`.*

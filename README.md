@@ -26,12 +26,14 @@ Pick a chain under `deployments/`, then:
 
 ```bash
 cd deployments/parano1d
-cp .env.example .env      # set your image registry + wallet — see that folder's README
+cp .env.example .env      # set your wallet + node RPC token — see that folder's README
 docker compose up -d
 docker compose logs -f pool
+./p1d address             # your payout address
 ```
 
-Each chain folder has its **own README** with the full walk-through: getting a
+Each chain folder has its **own README** with the full walk-through, and a `p1d`
+helper script for the wallet (address, balance, sending, backup): getting a
 wallet, connecting your miners, backing up, and troubleshooting.
 
 ## Images

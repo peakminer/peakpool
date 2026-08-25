@@ -4,11 +4,12 @@
 #   docker compose up -d
 #   docker compose logs -f pool
 #
-# Point your rigs (peakminer) at <this host>:34254. The SV2 authority public key
-# is baked into the pool image and documented with the release — miners pass it
-# as --sv2-authority-key.
+# Point your rigs (peakminer) at <this host>:34254. The SV2 authority identity is
+# baked into both the pool image and peakminer, so rigs need no key on the
+# command line — see step 5 of the README.
 #
 # Everything tunable lives in .env; you should not need to touch this file.
+# Wallet/telemetry helpers live in ./p1d (./p1d help).
 
 name: parano1d-pool
 
@@ -69,9 +70,10 @@ services:
       retries: 5
       start_period: 60s
 
-  # One-shot wallet backup:  docker compose run --rm backup
-  # Then copy ./backup OFF THIS MACHINE. Chain data resyncs in ~20s; wallet.key
-  # does not come back if lost.
+  # One-shot wallet backup:  ./p1d backup   (= docker compose run --rm backup)
+  # Copies the FULL wallet set (not just wallet.key) — the marker file is needed
+  # to restore. Then copy ./backup OFF THIS MACHINE. Chain data resyncs in ~20s;
+  # the wallet does not come back if lost.
   backup:
     profiles: ["backup"]
     image: debian:bookworm-slim
@@ -84,9 +86,11 @@ services:
       - >-
         set -eu;
         install -m 700 -d /backup;
-        install -m 600 /chain/wallet.key /backup/wallet.key;
-        cmp /chain/wallet.key /backup/wallet.key;
-        echo "wallet.key is in ./backup — now copy it off this machine"
+        cp -a /chain/wallet.key /chain/wallet.meta /chain/.network-storage-epoch /backup/;
+        cp -a /chain/wallet.history /chain/wallet.receipts /backup/ 2>/dev/null || true;
+        chmod 600 /backup/wallet.key;
+        ls -la /backup;
+        echo "Full wallet backup in ./backup — copy it OFF this machine. Restore: README section 6."
 
 volumes:
   chain:

@@ -1,0 +1,109 @@
+#!/usr/bin/env sh
+# p1d — small wrapper around the node's wallet RPC and the pool's telemetry,
+# so you never have to hand-write a curl/JSON one-liner.
+#
+#   ./p1d address              # your payout address
+#   ./p1d balance              # balance, in NOID
+#   ./p1d send <o1addr> <NOID> # send coins (fee auto)
+#   ./p1d newaddress           # generate one more receiving address
+#   ./p1d status               # node sync / mining-ready status
+#   ./p1d stats                # pool stats (hashrate, shares, height)
+#   ./p1d backup               # copy wallet.key into ./backup
+#   ./p1d logs                 # follow the pool log
+#
+# Run it from this folder. Needs nothing but Docker; `jq` is used to pretty-print
+# if you have it, plain JSON otherwise.
+set -eu
+
+cd "$(dirname "$0")"
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+# `stats` and `health` talk to the pool from the host; the wallet commands go
+# through the node container and need no host curl.
+need_curl() {
+  command -v curl >/dev/null 2>&1 || die \
+    "this command needs curl on the host (apt install curl), or use: docker compose logs -f pool"
+}
+
+pretty() {
+  if command -v jq >/dev/null 2>&1; then jq .; else cat; echo; fi
+}
+
+# rpc <method> [json-params]   — params must not contain single quotes.
+rpc() {
+  _m=$1
+  _p=${2:-[]}
+  docker compose exec -T node sh -lc "curl -fsS --max-time 20 \
+    -H 'Content-Type: application/json' \
+    -H \"Authorization: Bearer \$MINING_KEY\" \
+    --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$_m\",\"params\":$_p}' \
+    http://127.0.0.1:9601"
+}
+
+usage() {
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+  exit "${1:-0}"
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  address)
+    rpc paranoid_walletActiveAddress | pretty
+    ;;
+
+  newaddress)
+    rpc paranoid_walletNextAddress | pretty
+    ;;
+
+  balance)
+    rpc paranoid_walletGetBalance | pretty
+    ;;
+
+  send)
+    [ $# -ge 2 ] || die "usage: ./p1d send <o1-address> <amount-in-NOID> [fee-in-uNOID]"
+    to=$1
+    case "$to" in o1*) ;; *) die "not an o1… address: $to" ;; esac
+    # NOID -> micro-NOID (1 NOID = 1,000,000 uNOID). 0 fee = node picks it.
+    amount=$(awk -v a="$2" 'BEGIN { printf "%.0f", a * 1000000 }')
+    [ "$amount" -gt 0 ] 2>/dev/null || die "amount must be a positive number of NOID"
+    fee=${3:-0}
+    printf 'Send %s NOID (%s uNOID) to %s ? [y/N] ' "$2" "$amount" "$to"
+    read -r reply
+    case "$reply" in [yY]*) ;; *) die "aborted" ;; esac
+    rpc paranoid_walletSend "[\"$to\",$amount,$fee]" | pretty
+    ;;
+
+  status)
+    rpc paranoid_getNodeStatus | pretty
+    ;;
+
+  stats)
+    need_curl
+    curl -fsS --max-time 10 http://127.0.0.1:9330/stats | pretty
+    ;;
+
+  health)
+    need_curl
+    curl -fsS --max-time 10 http://127.0.0.1:9330/healthz | pretty
+    ;;
+
+  backup)
+    docker compose run --rm backup
+    ;;
+
+  logs)
+    docker compose logs -f pool
+    ;;
+
+  help|-h|--help)
+    usage 0
+    ;;
+
+  *)
+    printf 'unknown command: %s\n\n' "$cmd" >&2
+    usage 1
+    ;;
+esac
