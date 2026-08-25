@@ -293,18 +293,18 @@ accumulate any real balance.
 > that **wipes a data directory that is missing `.network-storage-epoch`** and
 > then creates a new, empty wallet — so a lone `wallet.key` does **not** restore.
 
-**To restore** (e.g. on a new machine), stop the node, put the backup back into
-the chain volume, and start it:
+**To restore** (e.g. on a new machine): bring the stack up once, put your backup
+files into `./backup/`, then run one command:
 
 ```bash
-docker compose stop node
-docker run --rm -v parano1d-pool_chain:/chain -v "$PWD/backup":/bk busybox \
-  sh -c 'cp -a /bk/wallet.key /bk/wallet.meta /bk/.network-storage-epoch /chain/ && chmod 600 /chain/wallet.key'
-docker compose start node
+docker compose up -d          # first run creates the volume + marker
+# copy your backed-up wallet.key, wallet.meta and .network-storage-epoch into ./backup/
+./p1d restore                 # stops the node, restores the wallet, starts it
 ```
 
-The node log should say **`loading wallet`** (not `creating new wallet`); then
-`paranoid_walletGetBalance` (step 4) shows your balance.
+`./p1d restore` copies the **full** wallet set (including `.network-storage-epoch`)
+back into the chain volume. The node log should then say **`loading wallet`** (not
+`creating new wallet`); verify with `./p1d address` and `./p1d balance`.
 
 > Docker creates `./backup/` owned by **root**, so copying it out may need
 > `sudo`. Treat these files like private keys — because they are.

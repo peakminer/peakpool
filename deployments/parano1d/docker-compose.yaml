@@ -92,5 +92,27 @@ services:
         ls -la /backup;
         echo "Full wallet backup in ./backup — copy it OFF this machine. Restore: README section 6."
 
+  # One-shot wallet RESTORE:  ./p1d restore   (stops the node, then this, then starts it)
+  # Copies the full wallet set from ./backup back into the chain volume. The
+  # .network-storage-epoch marker MUST be present or the node wipes the dir.
+  restore:
+    profiles: ["backup"]
+    image: debian:bookworm-slim
+    volumes:
+      - chain:/chain
+      - ./backup:/backup:ro
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        set -eu;
+        test -f /backup/wallet.key || { echo "no ./backup/wallet.key — put your backup files in ./backup first"; exit 1; };
+        cp -a /backup/wallet.key /backup/wallet.meta /backup/.network-storage-epoch /chain/;
+        cp -a /backup/wallet.history /backup/wallet.receipts /chain/ 2>/dev/null || true;
+        chown 0:0 /chain/wallet.key /chain/wallet.meta /chain/.network-storage-epoch;
+        chown 0:0 /chain/wallet.history /chain/wallet.receipts 2>/dev/null || true;
+        chmod 600 /chain/wallet.key;
+        echo "wallet restored into the chain volume — start the node, then: ./p1d address"
+
 volumes:
   chain:

@@ -8,7 +8,8 @@
 #   ./p1d newaddress           # generate one more receiving address
 #   ./p1d status               # node sync / mining-ready status
 #   ./p1d stats                # pool stats (hashrate, shares, height)
-#   ./p1d backup               # copy wallet.key into ./backup
+#   ./p1d backup               # back up the full wallet set to ./backup
+#   ./p1d restore              # restore the wallet from ./backup (new machine)
 #   ./p1d logs                 # follow the pool log
 #
 # Run it from this folder. Needs nothing but Docker; `jq` is used to pretty-print
@@ -42,7 +43,7 @@ rpc() {
 }
 
 usage() {
-  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -92,6 +93,14 @@ case "$cmd" in
 
   backup)
     docker compose run --rm backup
+    ;;
+
+  restore)
+    [ -f backup/wallet.key ] || die "no ./backup/wallet.key — put your backup files in ./backup first"
+    docker compose stop node
+    docker compose run --rm restore
+    docker compose start node
+    echo "node restarting — verify with:  ./p1d status   then   ./p1d address"
     ;;
 
   logs)
