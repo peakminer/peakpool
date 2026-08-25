@@ -1,0 +1,92 @@
+# parano1d solo mining pool — full node + peakpool, ready to run.
+#
+#   cp .env.example .env      # edit WALLET_ADDRESS to your own wallet
+#   docker compose up -d
+#   docker compose logs -f pool
+#
+# Point your rigs (peakminer) at <this host>:34254. The SV2 authority public key
+# is baked into the pool image and documented with the release — miners pass it
+# as --sv2-authority-key.
+#
+# Everything tunable lives in .env; you should not need to touch this file.
+
+name: parano1d-pool
+
+services:
+  node:
+    image: peakminer/parano1d-node:1.0.0
+    restart: unless-stopped
+    stop_grace_period: 60s
+    ports:
+      # P2P — must reach the internet for the node to follow the chain.
+      - "9600:9600"
+    volumes:
+      # MDBX chain state AND the node's wallet.key. Back it up (see below).
+      - chain:/chain
+    environment:
+      MINING_KEY: ${MINING_KEY:?set MINING_KEY in .env}
+    # HistoryStep proving is an all-core phase on the critical path; give the
+    # node the machine. 0 = unlimited.
+    cpus: ${NODE_CPUS:-0}
+    healthcheck:
+      # Not just "synced": the node refuses to build templates until it also has
+      # its authenticated peer quorum.
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS --max-time 10 -H 'Content-Type: application/json'
+          -H "Authorization: Bearer $$MINING_KEY"
+          --data '{"jsonrpc":"2.0","id":1,"method":"paranoid_getNodeStatus","params":[]}'
+          http://127.0.0.1:9601 | grep -q '"mining_ready":true'
+      interval: 15s
+      timeout: 15s
+      retries: 40
+      start_period: 120s
+
+  pool:
+    image: peakminer/peakpool:0.1.0
+    restart: unless-stopped
+    depends_on:
+      node:
+        condition: service_healthy
+    ports:
+      # The ONLY miner-facing port. Noise-encrypted SV2.
+      - "34254:34254"
+      # Telemetry (/stats, /healthz) — loopback only, it exposes hashrate.
+      - "127.0.0.1:9330:9330"
+    environment:
+      MINING_KEY: ${MINING_KEY:?set MINING_KEY in .env}
+      # Empty → the node's own auto-created wallet (fine for a quick test).
+      FARM_ADDRESS: ${WALLET_ADDRESS:-}
+      MIN_SHARE_DIFFICULTY: ${MIN_SHARE_DIFFICULTY:-1000000}
+      # Keep the colored table/share lines in `docker logs` (stderr is not a
+      # TTY there, so color is off by default). Set NO_COLOR=1 to disable.
+      FORCE_COLOR: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 5 http://127.0.0.1:9330/healthz | grep -q ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # One-shot wallet backup:  docker compose run --rm backup
+  # Then copy ./backup OFF THIS MACHINE. Chain data resyncs in ~20s; wallet.key
+  # does not come back if lost.
+  backup:
+    profiles: ["backup"]
+    image: debian:bookworm-slim
+    volumes:
+      - chain:/chain:ro
+      - ./backup:/backup
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        set -eu;
+        install -m 700 -d /backup;
+        install -m 600 /chain/wallet.key /backup/wallet.key;
+        cmp /chain/wallet.key /backup/wallet.key;
+        echo "wallet.key is in ./backup — now copy it off this machine"
+
+volumes:
+  chain:
