@@ -252,11 +252,13 @@ peakminer \
   machine**, use the pool host's LAN IP or hostname. (Only if you run peakminer
   inside *another container* do you need the Docker bridge address, typically
   `172.17.0.1`.)
-- `-u` — this rig's login as `<o1-address>.<worker>`. Use the address from
-  **step 4** (`./p1d address`) — it must be a valid `o1…` address, the pool
-  checks it. The `.rig1` part just names the worker in the status table, so give
-  each rig its own name. Blocks pay the wallet you set in **step 3**, not this
-  address.
+- `-u` — this rig's login as `<o1-address>.<worker>`. Put **any valid `o1…`
+  address** here — **it does NOT affect where coins go.** Every block pays the
+  wallet you set in **step 3**, whatever you write here; this field is only a
+  worker label for the status table. The pool does check the format, so it must
+  be a real `o1…` address (a malformed one is rejected) — simplest is to reuse
+  your own address from **step 4** (`./p1d address`). The `.rig1` suffix just
+  names the worker, so give each rig its own.
 - `--coin parano1d`.
 
 Difficulty auto-tunes to each rig; you do not set it per miner.
