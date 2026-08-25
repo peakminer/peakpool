@@ -50,6 +50,28 @@ pinned in each deployment's `docker-compose.yaml`:
 - Not a hosting service — you run it on your own machine, for your own rigs.
 - Not custodial — the pool moves no money; your wallet is paid on chain.
 
+## Roadmap
+
+Planned, not promises — roughly in priority order.
+
+- [x] **parano1d** — Stratum V2 solo pool + full node, one-command Docker
+- [ ] **Web dashboard** — a live monitoring UI (hashrate, workers, shares,
+      blocks, wallet balance), built on the pool's existing `/stats` API
+- [ ] **More chains** — the chain-agnostic core makes each new coin a drop-in
+      add-on; adding a chain never touches the core
+- [ ] **Block & health alerts** — Telegram / Discord / webhook notifications on a
+      found block, a worker going offline, or the node falling out of sync
+- [ ] **Prometheus + Grafana** — a ready-made dashboard on the existing
+      `/metrics` endpoint
+- [ ] **More reward schemes** — PPS / PPLNS alongside solo (the custodial ledger
+      is already in the core, on its own axis)
+- [ ] **Single multi-chain image** — one `peakpool:<version>`, pick the coin at
+      runtime with `--chain` (per-chain dev-fee config already supported)
+- [ ] **Stratum V1 bridge** — an optional front-end translator for rigs that do
+      not speak SV2 yet
+
+Have a request or want a coin added? Open an issue.
+
 ## License
 
 Proprietary — see [LICENSE](LICENSE). You may run unmodified builds for your own
