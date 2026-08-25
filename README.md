@@ -36,13 +36,21 @@ wallet, connecting your miners, backing up, and troubleshooting.
 
 ## Images
 
-The node and pool run from published container images (you **pull** them, you do
-not build the pool yourself — its signing identity is baked in at publish time).
-Set `NODE_IMAGE` / `POOL_IMAGE` in your `.env` to the registry they were pushed
-to. See each deployment's `.env.example`.
+The node and pool run from published container images that `docker compose`
+**pulls** automatically — you do not build the pool yourself (its signing
+identity and dev fee are baked in at publish time). The exact image tags are
+pinned in each deployment's `docker-compose.yaml`:
+
+- `peakminer/parano1d-node:1.0.0`
+- `peakminer/peakpool:0.1.0`
 
 ## What this is not
 
 - Not a shared/PPS pool — payouts are solo, block-by-block.
 - Not a hosting service — you run it on your own machine, for your own rigs.
 - Not custodial — the pool moves no money; your wallet is paid on chain.
+
+## License
+
+Proprietary — see [LICENSE](LICENSE). You may run unmodified builds for your own
+mining; the disclosed developer fee is the consideration for that right.
