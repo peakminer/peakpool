@@ -44,7 +44,7 @@ services:
       start_period: 120s
 
   pool:
-    image: peakminer/peakpool:0.1.0
+    image: peakminer/peakpool:0.1.1
     restart: unless-stopped
     depends_on:
       node:
