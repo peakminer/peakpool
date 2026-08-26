@@ -14,7 +14,7 @@ name: parano1d-pool
 
 services:
   node:
-    image: peakminer/parano1d-node:1.0.1
+    image: peakminer/parano1d-node:1.0.2
     restart: unless-stopped
     stop_grace_period: 60s
     ports:
@@ -44,7 +44,7 @@ services:
       start_period: 120s
 
   pool:
-    image: peakminer/peakpool:0.1.2
+    image: peakminer/peakpool:0.1.3
     restart: unless-stopped
     networks:
       default: {}
@@ -63,7 +63,7 @@ services:
     environment:
       MINING_KEY: ${MINING_KEY:?set MINING_KEY in .env}
       # Empty → the node's own auto-created wallet (fine for a quick test).
-      FARM_ADDRESS: ${WALLET_ADDRESS:-}
+      WALLET_ADDRESS: ${WALLET_ADDRESS:-}
       MIN_SHARE_DIFFICULTY: ${MIN_SHARE_DIFFICULTY:-1000000}
       # Keep the colored table/share lines in `docker logs` (stderr is not a
       # TTY there, so color is off by default). Set NO_COLOR=1 to disable.
