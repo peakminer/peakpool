@@ -14,7 +14,7 @@ name: parano1d-pool
 
 services:
   node:
-    image: peakminer/parano1d-node:1.0.0
+    image: peakminer/parano1d-node:1.0.1
     restart: unless-stopped
     stop_grace_period: 60s
     ports:
@@ -44,8 +44,14 @@ services:
       start_period: 120s
 
   pool:
-    image: peakminer/peakpool:0.1.1
+    image: peakminer/peakpool:0.1.2
     restart: unless-stopped
+    networks:
+      default: {}
+      # Shared with the monitoring stack; this alias is how VictoriaMetrics
+      # scrapes THIS chain's pool (see deployments/monitoring/vm-scrape.yml).
+      peakpool:
+        aliases: [parano1d-pool]
     depends_on:
       node:
         condition: service_healthy
@@ -115,3 +121,7 @@ services:
 
 volumes:
   chain:
+
+networks:
+  peakpool:
+    name: peakpool

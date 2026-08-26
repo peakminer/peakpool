@@ -36,6 +36,10 @@ Each chain folder has its **own README** with the full walk-through, and a `p1d`
 helper script for the wallet (address, balance, sending, backup): getting a
 wallet, connecting your miners, backing up, and troubleshooting.
 
+**Monitoring (optional).** A shared Grafana + VictoriaMetrics dashboard for all
+your chains — hashrate, workers, blocks, wallet balance — lives in
+[`deployments/monitoring/`](deployments/monitoring/).
+
 ## Images
 
 The node and pool run from published container images that `docker compose`
@@ -43,8 +47,8 @@ The node and pool run from published container images that `docker compose`
 identity and dev fee are baked in at publish time). The exact image tags are
 pinned in each deployment's `docker-compose.yaml`:
 
-- `peakminer/parano1d-node:1.0.0`
-- `peakminer/peakpool:0.1.0`
+- `peakminer/parano1d-node:1.0.1`
+- `peakminer/peakpool:0.1.2`
 
 ## What this is not
 
@@ -63,8 +67,8 @@ Planned, not promises — roughly in priority order.
       add-on; adding a chain never touches the core
 - [ ] **Block & health alerts** — Telegram / Discord / webhook notifications on a
       found block, a worker going offline, or the node falling out of sync
-- [ ] **Prometheus + Grafana** — a ready-made dashboard on the existing
-      `/metrics` endpoint
+- [x] **Prometheus + Grafana** — a ready-made dashboard on the pool's
+      `/metrics` endpoint; see [`deployments/monitoring/`](deployments/monitoring/)
 - [ ] **More reward schemes** — PPS / PPLNS alongside solo (the custodial ledger
       is already in the core, on its own axis)
 - [ ] **Single multi-chain image** — one `peakpool:<version>`, pick the coin at

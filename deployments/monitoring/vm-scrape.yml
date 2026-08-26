@@ -1,0 +1,10 @@
+# VictoriaMetrics scrapes each pool's Prometheus endpoint. Every target carries
+# a `chain` label so one Grafana dashboard can filter/compare across coins.
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: peakpool
+    static_configs:
+      - targets: ["parano1d-pool:9330"]
+        labels:
+          chain: parano1d

@@ -1,0 +1,100 @@
+{
+  "uid": "peakpool",
+  "title": "peakpool",
+  "tags": ["peakpool"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [
+    {
+      "name": "chain", "label": "Chain", "type": "query",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "definition": "label_values(chain)",
+      "query": { "query": "label_values(chain)", "refId": "chain" },
+      "refresh": 2, "includeAll": true, "multi": true, "sort": 1,
+      "current": { "text": "All", "value": "$__all" }
+    }
+  ] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Miners online",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "expr": "sum(peakpool_connections_open{chain=~\"$chain\"})", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Chain height",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "expr": "peakpool_height{chain=~\"$chain\"}", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "none", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Wallet (NOID)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "expr": "peakpool_farm_balance{chain=~\"$chain\"} / 1000000", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 3, "color": { "mode": "fixed", "fixedColor": "green" } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Blocks found",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "expr": "sum(peakpool_blocks_found_total{chain=~\"$chain\"})", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Hashrate — pool vs network (est.)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        { "refId": "A", "legendFormat": "pool {{chain}}", "expr": "sum by (chain) (rate(peakpool_work_accepted_total{chain=~\"$chain\"}[5m]))", "datasource": { "type": "prometheus", "uid": "victoriametrics" } },
+        { "refId": "B", "legendFormat": "network {{chain}}", "expr": "peakpool_net_difficulty{chain=~\"$chain\"} * rate(peakpool_height{chain=~\"$chain\"}[10m])", "datasource": { "type": "prometheus", "uid": "victoriametrics" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "hertz", "custom": { "fillOpacity": 12, "lineWidth": 2 } } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Effort / Luck (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        { "refId": "A", "legendFormat": "effort {{chain}}", "expr": "peakpool_effort_percent{chain=~\"$chain\"}", "datasource": { "type": "prometheus", "uid": "victoriametrics" } },
+        { "refId": "B", "legendFormat": "luck {{chain}}", "expr": "peakpool_luck_percent{chain=~\"$chain\"}", "datasource": { "type": "prometheus", "uid": "victoriametrics" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "custom": { "fillOpacity": 10, "lineWidth": 2 } } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Share rate (per second)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        { "refId": "A", "legendFormat": "accepted {{chain}}", "expr": "sum by (chain) (rate(peakpool_shares_accepted_total{chain=~\"$chain\"}[5m]))", "datasource": { "type": "prometheus", "uid": "victoriametrics" } },
+        { "refId": "B", "legendFormat": "stale {{chain}}", "expr": "sum by (chain) (rate(peakpool_shares_stale_total{chain=~\"$chain\"}[5m]))", "datasource": { "type": "prometheus", "uid": "victoriametrics" } },
+        { "refId": "C", "legendFormat": "rejected {{chain}}", "expr": "sum by (chain) (rate(peakpool_shares_rejected_total{chain=~\"$chain\"}[5m]))", "datasource": { "type": "prometheus", "uid": "victoriametrics" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "cps", "custom": { "fillOpacity": 10, "lineWidth": 2 } } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Template age (s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "legendFormat": "template age {{chain}}", "expr": "peakpool_template_age_seconds{chain=~\"$chain\"}", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "lineWidth": 2 } } }
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Per-worker hashrate",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [ { "refId": "A", "legendFormat": "{{chain}} · {{worker}}", "expr": "rate(peakpool_worker_work_accepted_total{chain=~\"$chain\"}[5m])", "datasource": { "type": "prometheus", "uid": "victoriametrics" } } ],
+      "fieldConfig": { "defaults": { "unit": "hertz", "custom": { "fillOpacity": 10, "lineWidth": 2 } } }
+    }
+  ]
+}

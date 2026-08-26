@@ -1,0 +1,57 @@
+# Shared monitoring for ALL peakpool chains: one VictoriaMetrics + one Grafana,
+# one dashboard with a chain filter. It scrapes every chain's pool over a shared
+# Docker network.
+#
+# Run order (once):
+#   docker network create peakpool                 # the shared network
+#   (cd ../parano1d && docker compose up -d)        # a chain stack (joins it)
+#   docker compose up -d                            # this monitoring stack
+#
+# Dashboard (no login): http://127.0.0.1:3000/d/peakpool/peakpool?kiosk
+# (Grafana is loopback-only; reach it over SSH: ssh -L 3000:127.0.0.1:3000 host)
+
+name: peakpool-monitoring
+
+services:
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.145.0
+    restart: unless-stopped
+    networks: [peakpool]
+    volumes:
+      - vmdata:/victoria-metrics-data
+      - ./vm-scrape.yml:/etc/vm/scrape.yml:ro
+    command:
+      - "-promscrape.config=/etc/vm/scrape.yml"
+      - "-retentionPeriod=7d"
+
+  grafana:
+    image: grafana/grafana:12.4.4
+    restart: unless-stopped
+    depends_on: [victoria-metrics]
+    networks: [peakpool]
+    ports:
+      # Loopback only — reach it over an SSH tunnel, like the pool's telemetry.
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      # Editor (not Viewer) because Grafana 12 RBAC denies anonymous Viewer the
+      # dashboards:read permission, which breaks /d/<uid>. Safe here: Grafana is
+      # loopback-only, and the dashboard is provisioned from file so edits do not
+      # persist. This gives a fixed, no-login URL: http://<host>:3000/d/peakpool
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Editor
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+networks:
+  # Shared with every chain stack. Create it once: docker network create peakpool
+  peakpool:
+    external: true
+
+volumes:
+  vmdata:
+  grafana-data:
