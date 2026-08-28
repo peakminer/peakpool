@@ -14,12 +14,23 @@ name: parano1d-pool
 
 services:
   node:
-    image: peakminer/parano1d-node:1.0.2
+    image: peakminer/parano1d-node:1.0.4
     restart: unless-stopped
     stop_grace_period: 60s
     ports:
       # P2P — must reach the internet for the node to follow the chain.
       - "9600:9600"
+      # The pool shares this netns (network_mode: service:node), so ITS ports are
+      # published here, on the node:
+      - "34254:34254"           # SV2 — the only miner-facing port
+      - "127.0.0.1:9330:9330"   # pool telemetry (/stats, /metrics, /healthz)
+    networks:
+      default: {}
+      # The pool's telemetry lives in this netns, so it is reachable at the
+      # node's address; this alias is how VictoriaMetrics scrapes it (see
+      # deployments/monitoring/vm-scrape.yml).
+      peakpool:
+        aliases: [parano1d-pool]
     volumes:
       # MDBX chain state AND the node's wallet.key. Back it up (see below).
       - chain:/chain
@@ -29,13 +40,12 @@ services:
     # node the machine. 0 = unlimited.
     cpus: ${NODE_CPUS:-0}
     healthcheck:
-      # Not just "synced": the node refuses to build templates until it also has
-      # its authenticated peer quorum.
+      # Runs on the node's own loopback → parano1d grants full Local access with
+      # no credential, so it reads real readiness (synced + peer quorum).
       test:
         - CMD-SHELL
         - >-
           curl -fsS --max-time 10 -H 'Content-Type: application/json'
-          -H "Authorization: Bearer $$MINING_KEY"
           --data '{"jsonrpc":"2.0","id":1,"method":"paranoid_getNodeStatus","params":[]}'
           http://127.0.0.1:9601 | grep -q '"mining_ready":true'
       interval: 15s
@@ -44,26 +54,19 @@ services:
       start_period: 120s
 
   pool:
-    image: peakminer/peakpool:0.1.3
+    image: peakminer/peakpool:0.1.4
     restart: unless-stopped
-    networks:
-      default: {}
-      # Shared with the monitoring stack; this alias is how VictoriaMetrics
-      # scrapes THIS chain's pool (see deployments/monitoring/vm-scrape.yml).
-      peakpool:
-        aliases: [parano1d-pool]
+    # Share the node's netns: the pool reaches the RPC on 127.0.0.1 as a loopback
+    # client, which parano1d grants FULL access with no credential (read balance,
+    # chain info, serve templates). Its ports are published on the node above.
+    network_mode: "service:node"
     depends_on:
       node:
         condition: service_healthy
-    ports:
-      # The ONLY miner-facing port. Noise-encrypted SV2.
-      - "34254:34254"
-      # Telemetry (/stats, /healthz) — loopback only, it exposes hashrate.
-      - "127.0.0.1:9330:9330"
     environment:
-      MINING_KEY: ${MINING_KEY:?set MINING_KEY in .env}
-      # Empty → the node's own auto-created wallet (fine for a quick test).
-      WALLET_ADDRESS: ${WALLET_ADDRESS:-}
+      # Your own o1… payout wallet — REQUIRED. The coinbase pays it directly
+      # (non-custodial). No MINING_KEY: the pool uses loopback Local access.
+      WALLET_ADDRESS: ${WALLET_ADDRESS:?set WALLET_ADDRESS in .env to your o1… wallet}
       MIN_SHARE_DIFFICULTY: ${MIN_SHARE_DIFFICULTY:-1000000}
       # Keep the colored table/share lines in `docker logs` (stderr is not a
       # TTY there, so color is off by default). Set NO_COLOR=1 to disable.

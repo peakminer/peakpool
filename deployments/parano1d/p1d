@@ -32,12 +32,15 @@ pretty() {
 }
 
 # rpc <method> [json-params]   — params must not contain single quotes.
+# Runs inside the node container, so 127.0.0.1:9601 is the node's own loopback:
+# parano1d grants that FULL access with no credential (Local role). No bearer is
+# sent — the mining credential is restricted to getBlockTemplate/submitBlock and
+# would be rejected for wallet calls.
 rpc() {
   _m=$1
   _p=${2:-[]}
   docker compose exec -T node sh -lc "curl -fsS --max-time 20 \
     -H 'Content-Type: application/json' \
-    -H \"Authorization: Bearer \$MINING_KEY\" \
     --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$_m\",\"params\":$_p}' \
     http://127.0.0.1:9601"
 }

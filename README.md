@@ -47,8 +47,8 @@ The node and pool run from published container images that `docker compose`
 identity and dev fee are baked in at publish time). The exact image tags are
 pinned in each deployment's `docker-compose.yaml`:
 
-- `peakminer/parano1d-node:1.0.2`
-- `peakminer/peakpool:0.1.3`
+- `peakminer/parano1d-node:1.0.3`
+- `peakminer/peakpool:0.1.4`
 
 ## What this is not
 
