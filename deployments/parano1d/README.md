@@ -466,5 +466,5 @@ else about the pool — identity, payout logic — is fixed in the release image
 
 ---
 
-*Powered by peakpool (Stratum V2) · images `peakminer/parano1d-node:1.0.0` and
-`peakminer/peakpool:0.1.1`.*
+*Powered by peakpool (Stratum V2) · images `peakminer/parano1d-node:2.0.2` and
+`peakminer/peakpool:0.1.4`.*

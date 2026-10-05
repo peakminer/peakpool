@@ -14,7 +14,8 @@ name: parano1d-pool
 
 services:
   node:
-    image: peakminer/parano1d-node:1.0.4
+    # parano1d v2.0.2 — mandatory mainnet upgrade (activates at block 210,537).
+    image: peakminer/parano1d-node:2.0.2
     restart: unless-stopped
     stop_grace_period: 60s
     ports:
